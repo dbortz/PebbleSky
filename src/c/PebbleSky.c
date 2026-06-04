@@ -31,6 +31,7 @@ typedef struct {
   int   temp_f;
   int   high_f;
   int   steps;
+  int   icon;           // 0-11, matches the icon dispatcher / icons.js ORDER
   bool  rain;
   bool  stale;
   char  warn[16];       // e.g. "RAIN IN 20M"
@@ -42,6 +43,7 @@ static FaceData s_data = {
   .temp_f  = 72,
   .high_f  = 78,
   .steps   = 8432,
+  .icon    = 2,         // partly-cloudy-day (demo until weather arrives)
   .rain    = false,
   .stale   = false,
   .warn    = "",
@@ -112,10 +114,75 @@ static void draw_sun(GContext *ctx, int ox, int oy, GPoint c, int r, int ray, GC
   graphics_fill_circle(ctx, GPoint(cx, cy), r);
 }
 
-// Demo weather glyph: partly-cloudy-day (small sun upper-left + cloud).
-static void draw_weather_icon(GContext *ctx, int ox, int oy) {
-  draw_sun(ctx, ox, oy, GPoint(15, 14), 6, 6, s_theme.text_primary);
-  draw_cloud(ctx, ox, oy, GPoint(25, 24), 0.92f, s_theme.text_primary);
+// Crescent moon = disc with a background-colored bite (offset upper-right).
+static void draw_moon(GContext *ctx, int ox, int oy, GPoint c, int r, GColor fill) {
+  int cx = ox + c.x, cy = oy + c.y;
+  graphics_context_set_fill_color(ctx, fill);
+  graphics_fill_circle(ctx, GPoint(cx, cy), r);
+  graphics_context_set_fill_color(ctx, s_theme.background);
+  graphics_fill_circle(ctx, GPoint(cx + (r*55)/100, cy - (r*38)/100), (r*92)/100);
+}
+
+// Vertical rounded "drop".
+static void draw_drop(GContext *ctx, int ox, int oy, int x, int y, int h, GColor fill) {
+  graphics_context_set_fill_color(ctx, fill);
+  graphics_fill_rect(ctx, GRect(ox + x - 1, oy + y, 3, h), 1, GCornersAll);
+}
+
+// N horizontal rounded lines (fog / wind).
+static void draw_hlines(GContext *ctx, int ox, int oy, const int *yy,
+                        const int *x0, const int *x1, int n, GColor fill) {
+  graphics_context_set_stroke_color(ctx, fill);
+  graphics_context_set_stroke_width(ctx, 3);
+  for (int i = 0; i < n; i++)
+    graphics_draw_line(ctx, GPoint(ox + x0[i], oy + yy[i]), GPoint(ox + x1[i], oy + yy[i]));
+}
+
+// Dispatch one of the 12 weather glyphs (44 grid). Precip drops/bolt use accent.
+static void draw_weather_icon(GContext *ctx, int ox, int oy, int icon) {
+  GColor pri = s_data.stale ? s_theme.text_secondary : s_theme.text_primary;
+  GColor acc = s_theme.accent;
+  switch (icon) {
+    case 0: draw_sun(ctx, ox, oy, GPoint(22, 22), 9, 8, pri); break;
+    case 1: draw_moon(ctx, ox, oy, GPoint(24, 22), 14, pri); break;
+    case 2: draw_sun(ctx, ox, oy, GPoint(15, 14), 6, 6, pri);
+            draw_cloud(ctx, ox, oy, GPoint(25, 24), 0.92f, pri); break;
+    case 3: draw_moon(ctx, ox, oy, GPoint(15, 14), 9, pri);
+            draw_cloud(ctx, ox, oy, GPoint(25, 24), 0.92f, pri); break;
+    case 4: draw_cloud(ctx, ox, oy, GPoint(15, 15), 0.72f, s_theme.text_secondary);
+            draw_cloud(ctx, ox, oy, GPoint(24, 25), 1.0f, pri); break;
+    case 5: { draw_cloud(ctx, ox, oy, GPoint(22, 16), 0.9f, pri);
+              int yy[3]={32,37,42}, a[3]={11,9,13}, b[3]={33,35,31};
+              draw_hlines(ctx, ox, oy, yy, a, b, 3, pri); } break;
+    case 6: draw_cloud(ctx, ox, oy, GPoint(22, 16), 0.96f, pri);
+            draw_drop(ctx, ox, oy, 15, 33, 6, acc);
+            draw_drop(ctx, ox, oy, 22, 35, 6, acc);
+            draw_drop(ctx, ox, oy, 29, 33, 6, acc); break;
+    case 7: draw_cloud(ctx, ox, oy, GPoint(22, 15), 0.98f, pri);
+            draw_drop(ctx, ox, oy, 14, 33, 9, acc);
+            draw_drop(ctx, ox, oy, 22, 35, 9, acc);
+            draw_drop(ctx, ox, oy, 30, 33, 9, acc); break;
+    case 8: { draw_cloud(ctx, ox, oy, GPoint(22, 14), 0.98f, pri);
+              draw_drop(ctx, ox, oy, 14, 33, 7, pri);
+              graphics_context_set_stroke_color(ctx, acc);
+              graphics_context_set_stroke_width(ctx, 3);
+              graphics_draw_line(ctx, GPoint(ox+27, oy+29), GPoint(ox+22, oy+35));
+              graphics_draw_line(ctx, GPoint(ox+22, oy+35), GPoint(ox+27, oy+35));
+              graphics_draw_line(ctx, GPoint(ox+27, oy+35), GPoint(ox+22, oy+42)); } break;
+    case 9: draw_cloud(ctx, ox, oy, GPoint(22, 15), 0.98f, pri);
+            graphics_context_set_fill_color(ctx, pri);
+            graphics_fill_circle(ctx, GPoint(ox+15, oy+35), 2);
+            graphics_fill_circle(ctx, GPoint(ox+23, oy+38), 2);
+            graphics_fill_circle(ctx, GPoint(ox+31, oy+35), 2); break;
+    case 10: draw_cloud(ctx, ox, oy, GPoint(22, 15), 0.98f, pri);
+             draw_drop(ctx, ox, oy, 15, 33, 8, acc);
+             graphics_context_set_fill_color(ctx, pri);
+             graphics_fill_circle(ctx, GPoint(ox+24, oy+37), 2);
+             draw_drop(ctx, ox, oy, 31, 33, 8, acc); break;
+    case 11: { int yy[3]={17,24,31}, a[3]={8,8,8}, b[3]={28,34,24};
+               draw_hlines(ctx, ox, oy, yy, a, b, 3, pri); } break;
+    default: draw_cloud(ctx, ox, oy, GPoint(24, 22), 1.0f, pri); break;
+  }
 }
 
 // Battery: shell (16x10, 2px border) + inner fill ∝ %, + nub, + "NN%".
@@ -188,7 +255,7 @@ static void canvas_update(Layer *layer, GContext *ctx) {
 
   // --- Weather row: icon, current temp, high (right) ---
   GColor c_primary = s_data.stale ? s_theme.text_secondary : s_theme.text_primary;
-  draw_weather_icon(ctx, PAD, WROW_Y);
+  draw_weather_icon(ctx, PAD, WROW_Y, s_data.icon);
   static char temp[8], high[10];
   snprintf(temp, sizeof(temp), "%d°", s_data.temp_f);
   snprintf(high, sizeof(high), "H %d°", s_data.high_f);
@@ -264,6 +331,25 @@ static void health_handler(HealthEventType event, void *context) {
 }
 #endif
 
+// ---- Weather via AppMessage (PebbleKit JS pushes the canonical model) -------
+static void inbox_received(DictionaryIterator *iter, void *context) {
+  Tuple *t;
+  if ((t = dict_find(iter, MESSAGE_KEY_WX_TEMP))) s_data.temp_f = t->value->int32;
+  if ((t = dict_find(iter, MESSAGE_KEY_WX_HIGH))) s_data.high_f = t->value->int32;
+  if ((t = dict_find(iter, MESSAGE_KEY_WX_ICON))) s_data.icon   = t->value->int32;
+  if ((t = dict_find(iter, MESSAGE_KEY_WX_RAIN))) s_data.rain   = (t->value->int32 != 0);
+  if ((t = dict_find(iter, MESSAGE_KEY_WX_WARN))) {
+    strncpy(s_data.warn, t->value->cstring, sizeof(s_data.warn) - 1);
+    s_data.warn[sizeof(s_data.warn) - 1] = '\0';
+  }
+  if ((t = dict_find(iter, MESSAGE_KEY_WX_PRECIP))) {
+    int n = t->length; if (n > 8) n = 8;
+    for (int i = 0; i < n; i++) s_data.precip[i] = t->value->data[i];
+  }
+  s_data.stale = false;
+  if (s_canvas) layer_mark_dirty(s_canvas);
+}
+
 // ---------------------------------------------------------------------------
 // Lifecycle
 // ---------------------------------------------------------------------------
@@ -325,6 +411,9 @@ static void prv_init(void) {
   refresh_steps();
   health_service_events_subscribe(health_handler, NULL);
 #endif
+
+  app_message_register_inbox_received(inbox_received);
+  app_message_open(256, 64);
 }
 
 static void prv_deinit(void) {
