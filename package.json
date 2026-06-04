@@ -20,7 +20,44 @@
       "dummy"
     ],
     "resources": {
-      "media": []
+      "media": [
+        {
+          "type": "font",
+          "name": "FONT_ARCHIVO_XB_66",
+          "file": "fonts/Archivo-ExtraBold.ttf",
+          "characterRegex": "[0-9:]"
+        },
+        {
+          "type": "font",
+          "name": "FONT_ARCHIVO_XB_36",
+          "file": "fonts/Archivo-ExtraBold.ttf",
+          "characterRegex": "[0-9°-]"
+        },
+        {
+          "type": "font",
+          "name": "FONT_ARCHIVO_XB_25",
+          "file": "fonts/Archivo-ExtraBold.ttf",
+          "characterRegex": "[0-9,]"
+        },
+        {
+          "type": "font",
+          "name": "FONT_ARCHIVO_B_18",
+          "file": "fonts/Archivo-Bold.ttf",
+          "characterRegex": "[A-Za-z0-9 °]"
+        },
+        {
+          "type": "font",
+          "name": "FONT_ARCHIVO_B_14",
+          "file": "fonts/Archivo-Bold.ttf",
+          "characterRegex": "[A-Za-z0-9 /%·]"
+        },
+        {
+          "type": "font",
+          "name": "FONT_ARCHIVO_B_10",
+          "file": "fonts/Archivo-Bold.ttf",
+          "characterRegex": "[A-Z0-9 ]"
+        }
+      ]
     }
   }
 }

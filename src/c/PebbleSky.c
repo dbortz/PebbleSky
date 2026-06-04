@@ -53,6 +53,14 @@ static Layer  *s_canvas;
 static char    s_time_buf[8];
 static char    s_date_buf[16];
 
+// Custom Archivo bitmap fonts (loaded in window_load).
+static GFont s_f_time;  // ExtraBold 66 — time
+static GFont s_f_temp;  // ExtraBold 36 — current temp
+static GFont s_f_steps; // ExtraBold 25 — step count
+static GFont s_f_18;    // Bold 18 — high temp
+static GFont s_f_14;    // Bold 14 — date, battery, status line
+static GFont s_f_cap;   // Bold 10 — captions (STEPS)
+
 static const char *WD[] = {"SUN","MON","TUE","WED","THU","FRI","SAT"};
 
 // ---- Layout constants (px), from design/README.md --------------------------
@@ -127,8 +135,8 @@ static void draw_battery(GContext *ctx) {
   // percent
   static char pct[6];
   snprintf(pct, sizeof(pct), "%d%%", s_data.battery);
-  draw_text(ctx, pct, fonts_get_system_font(FONT_KEY_GOTHIC_14_BOLD),
-            GRect(sx + shell_w + 5, -1, W - (sx + shell_w + 5) - PAD, 20),
+  draw_text(ctx, pct, s_f_14,
+            GRect(sx + shell_w + 5, 2, W - (sx + shell_w + 5) - PAD, 20),
             s_theme.text_secondary, GTextAlignmentLeft);
 }
 
@@ -165,36 +173,28 @@ static void draw_precip_strip(GContext *ctx, GRect area, bool mark_now) {
 // Root render
 // ---------------------------------------------------------------------------
 static void canvas_update(Layer *layer, GContext *ctx) {
-  GFont f_time = fonts_get_system_font(FONT_KEY_LECO_42_NUMBERS);
-  GFont f_temp = fonts_get_system_font(FONT_KEY_BITHAM_30_BLACK);
-  GFont f_18   = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
-  GFont f_steps= fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
-  GFont f_14   = fonts_get_system_font(FONT_KEY_GOTHIC_14_BOLD);
-  GFont f_14r  = fonts_get_system_font(FONT_KEY_GOTHIC_14);
-
   // Background
   graphics_context_set_fill_color(ctx, s_theme.background);
   graphics_fill_rect(ctx, GRect(0, 0, W, H), 0, GCornerNone);
 
   // --- Status bar: date (left), battery (right) ---
-  draw_text(ctx, s_date_buf, f_14, GRect(PAD, 2, 120, 20),
+  draw_text(ctx, s_date_buf, s_f_14, GRect(PAD, 4, 120, 20),
             s_theme.text_secondary, GTextAlignmentLeft);
   draw_battery(ctx);
 
   // --- Time (centered) ---
-  draw_text(ctx, s_time_buf, f_time, GRect(0, TIME_Y + 12, W, TIME_H),
+  draw_text(ctx, s_time_buf, s_f_time, GRect(0, TIME_Y - 2, W, TIME_H),
             s_theme.text_primary, GTextAlignmentCenter);
 
   // --- Weather row: icon, current temp, high (right) ---
-  bool dim = s_data.stale;
-  GColor c_primary = dim ? s_theme.text_secondary : s_theme.text_primary;
+  GColor c_primary = s_data.stale ? s_theme.text_secondary : s_theme.text_primary;
   draw_weather_icon(ctx, PAD, WROW_Y);
   static char temp[8], high[10];
   snprintf(temp, sizeof(temp), "%d°", s_data.temp_f);
   snprintf(high, sizeof(high), "H %d°", s_data.high_f);
-  draw_text(ctx, temp, f_temp, GRect(PAD + 44 + 8, WROW_Y + 4, 90, 40),
+  draw_text(ctx, temp, s_f_temp, GRect(PAD + 52, WROW_Y + 2, 95, 42),
             c_primary, GTextAlignmentLeft);
-  draw_text(ctx, high, f_18, GRect(W - 9 - 70, WROW_Y + 12, 70, 24),
+  draw_text(ctx, high, s_f_18, GRect(W - PAD - 70, WROW_Y + 14, 70, 24),
             s_theme.text_secondary, GTextAlignmentRight);
   if (s_data.stale) { // stale dot at top-right of icon
     graphics_context_set_fill_color(ctx, s_theme.text_secondary);
@@ -203,28 +203,28 @@ static void canvas_update(Layer *layer, GContext *ctx) {
 
   // --- Bottom zone: steps (left col) | precip (right col) ---
   // Steps caption + count, bottom-aligned.
-  draw_footprint(ctx, PAD, 168, s_theme.text_secondary);
-  draw_text(ctx, "STEPS", f_14, GRect(PAD + 22, 166, 70, 18),
+  draw_footprint(ctx, PAD, 169, s_theme.text_secondary);
+  draw_text(ctx, "STEPS", s_f_cap, GRect(PAD + 20, 171, 70, 14),
             s_theme.text_secondary, GTextAlignmentLeft);
   static char steps[12];
-  snprintf(steps, sizeof(steps), "%d", s_data.steps);
-  // simple thousands separator
   if (s_data.steps >= 1000) {
     snprintf(steps, sizeof(steps), "%d,%03d", s_data.steps / 1000, s_data.steps % 1000);
+  } else {
+    snprintf(steps, sizeof(steps), "%d", s_data.steps);
   }
-  draw_text(ctx, steps, f_steps, GRect(PAD, 188, 95, 32),
+  draw_text(ctx, steps, s_f_steps, GRect(PAD, 188, 95, 34),
             s_theme.text_primary, GTextAlignmentLeft);
 
   // Precip status line + strip, right column.
   const int rcx = 101, rcw = W - 101 - PAD; // 90
   if (s_data.rain) {
-    draw_text(ctx, s_data.warn, f_14, GRect(rcx, 166, rcw, 18),
+    draw_text(ctx, s_data.warn, s_f_14, GRect(rcx, 168, rcw, 18),
               s_theme.warning, GTextAlignmentLeft);
   } else {
-    draw_text(ctx, "No rain · 2h", f_14r, GRect(rcx, 167, rcw, 18),
+    draw_text(ctx, "No rain · 2h", s_f_14, GRect(rcx, 169, rcw, 18),
               s_theme.text_secondary, GTextAlignmentLeft);
   }
-  draw_precip_strip(ctx, GRect(rcx, 190, rcw, 26), s_data.rain);
+  draw_precip_strip(ctx, GRect(rcx, 192, rcw, 26), s_data.rain);
 }
 
 // ---------------------------------------------------------------------------
@@ -246,6 +246,13 @@ static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
 // Lifecycle
 // ---------------------------------------------------------------------------
 static void prv_window_load(Window *window) {
+  s_f_time  = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_ARCHIVO_XB_66));
+  s_f_temp  = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_ARCHIVO_XB_36));
+  s_f_steps = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_ARCHIVO_XB_25));
+  s_f_18    = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_ARCHIVO_B_18));
+  s_f_14    = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_ARCHIVO_B_14));
+  s_f_cap   = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_ARCHIVO_B_10));
+
   Layer *root = window_get_root_layer(window);
   s_canvas = layer_create(layer_get_bounds(root));
   layer_set_update_proc(s_canvas, canvas_update);
@@ -258,6 +265,12 @@ static void prv_window_load(Window *window) {
 static void prv_window_unload(Window *window) {
   layer_destroy(s_canvas);
   s_canvas = NULL;
+  fonts_unload_custom_font(s_f_time);
+  fonts_unload_custom_font(s_f_temp);
+  fonts_unload_custom_font(s_f_steps);
+  fonts_unload_custom_font(s_f_18);
+  fonts_unload_custom_font(s_f_14);
+  fonts_unload_custom_font(s_f_cap);
 }
 
 static void prv_init(void) {
