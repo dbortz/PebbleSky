@@ -1,0 +1,42 @@
+{
+  "name": "pebblesky-detail",
+  "author": "Dave Bortz",
+  "version": "1.0.0",
+  "keywords": ["pebble-app"],
+  "private": true,
+  "dependencies": {},
+  "pebble": {
+    "displayName": "PebbleSky Detail",
+    "uuid": "6af03b95-eeed-4011-ba99-f686c9a3544b",
+    "sdkVersion": "3",
+    "enableMultiJS": true,
+    "targetPlatforms": [
+      "emery"
+    ],
+    "watchapp": {
+      "watchface": false
+    },
+    "messageKeys": [
+      "WX_TEMP",
+      "WX_HIGH",
+      "WX_ICON",
+      "WX_ANCHOR",
+      "WX_PRECIP",
+      "WX_PROBS",
+      "WX_DAILY",
+      "WX_FEELS",
+      "WX_WIND",
+      "WX_HUMID"
+    ],
+    "resources": {
+      "media": [
+        { "type": "font", "name": "FONT_ARCHIVO_XB_54", "file": "fonts/Archivo-ExtraBold.ttf", "characterRegex": "[0-9°-]" },
+        { "type": "font", "name": "FONT_ARCHIVO_XB_25", "file": "fonts/Archivo-ExtraBold.ttf", "characterRegex": "[0-9°%-]" },
+        { "type": "font", "name": "FONT_ARCHIVO_B_18", "file": "fonts/Archivo-Bold.ttf", "characterRegex": "[A-Za-z0-9 °-]" },
+        { "type": "font", "name": "FONT_ARCHIVO_B_15", "file": "fonts/Archivo-Bold.ttf", "characterRegex": "[A-Za-z0-9 °%/+-]" },
+        { "type": "font", "name": "FONT_ARCHIVO_B_12", "file": "fonts/Archivo-Bold.ttf", "characterRegex": "[A-Z0-9 -]" },
+        { "type": "font", "name": "FONT_ARCHIVO_B_10", "file": "fonts/Archivo-Bold.ttf", "characterRegex": "[A-Z0-9 %:+]" }
+      ]
+    }
+  }
+}
