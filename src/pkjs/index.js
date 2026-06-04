@@ -39,7 +39,7 @@ function fetchWeather(lat, lon) {
     + '&daily=temperature_2m_max'
     + '&minutely_15=precipitation'
     + '&temperature_unit=fahrenheit&precipitation_unit=inch'
-    + '&timezone=auto&forecast_days=1';
+    + '&timezone=auto&forecast_days=2';
 
   var xhr = new XMLHttpRequest();
   xhr.onload = function () {
@@ -57,31 +57,21 @@ function fetchWeather(lat, lon) {
       for (var i = 0; i < times.length; i++) {
         if (new Date(times[i]).getTime() + 15 * 60 * 1000 > nowMs) { start = i; break; }
       }
-      var levels = [];
-      for (var j = 0; j < 8; j++) levels.push(precipToLevel(precs[start + j]));
-
-      // Derive rain state + warning headline.
-      var rain = false, warn = '';
-      if (levels[0] > 0) {
-        var clearAt = -1;
-        for (var m = 1; m < 8; m++) { if (levels[m] === 0) { clearAt = m; break; } }
-        rain = true;
-        warn = clearAt >= 0 ? ('CLEARING IN ' + (clearAt * 15) + 'M') : 'RAIN NEXT 2H';
-      } else {
-        for (var k = 1; k < 8; k++) {
-          if (levels[k] > 0) { rain = true; warn = 'RAIN IN ' + (k * 15) + 'M'; break; }
-        }
-      }
+      // Over-fetch a 4h buffer (16 x 15-min). The watch slides a 2h window over
+      // it and recomputes the now-marker + countdown every minute, so the labels
+      // stay accurate between fetches (no need to re-fetch to keep them honest).
+      var buf = [];
+      for (var j = 0; j < 16; j++) buf.push(precipToLevel(precs[start + j]));
+      var anchor = Math.floor(new Date(times[start]).getTime() / 1000); // epoch sec of buf[0]
 
       Pebble.sendAppMessage({
         WX_TEMP: temp,
         WX_HIGH: high,
         WX_ICON: icon,
-        WX_RAIN: rain ? 1 : 0,
-        WX_WARN: warn,
-        WX_PRECIP: levels
+        WX_ANCHOR: anchor,
+        WX_PRECIP: buf
       },
-      function () { console.log('PebbleSky: weather sent (' + temp + 'F, icon ' + icon + ')'); },
+      function () { console.log('PebbleSky: weather sent (' + temp + 'F, icon ' + icon + ', ' + buf.length + ' buckets)'); },
       function (e) { console.log('PebbleSky: send failed: ' + JSON.stringify(e)); });
     } catch (e) {
       console.log('PebbleSky: parse error: ' + e);

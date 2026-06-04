@@ -23,9 +23,8 @@
       "WX_TEMP",
       "WX_HIGH",
       "WX_ICON",
-      "WX_PRECIP",
-      "WX_RAIN",
-      "WX_WARN"
+      "WX_ANCHOR",
+      "WX_PRECIP"
     ],
     "resources": {
       "media": [

@@ -34,8 +34,8 @@ typedef struct {
   int   icon;           // 0-11, matches the icon dispatcher / icons.js ORDER
   bool  rain;
   bool  stale;
-  char  warn[16];       // e.g. "RAIN IN 20M"
-  uint8_t precip[8];    // 0-4 per 15-min bucket
+  char  warn[20];       // e.g. "CLEARING IN 35M"
+  uint8_t precip[8];    // visible 2h window (0-4), recomputed each minute
 } FaceData;
 
 static FaceData s_data = {
@@ -49,6 +49,17 @@ static FaceData s_data = {
   .warn    = "",
   .precip  = {0, 0, 1, 0, 0, 1, 0, 0},
 };
+
+// Rolling 4h precip buffer + anchor. The phone over-fetches; the watch slides a
+// 2h (8-bucket) window over this and recomputes the now-marker + warning every
+// minute against the real clock, so labels stay accurate between fetches.
+#define BUF_N 16
+#define WIN_N 8
+static uint8_t s_wx_buf[BUF_N];
+static int     s_wx_buf_len = 0;
+static time_t  s_wx_anchor = 0;       // epoch of s_wx_buf[0]
+static time_t  s_wx_last_update = 0;  // when the last AppMessage arrived
+static bool    s_wx_have = false;     // received at least one forecast
 
 static Window *s_window;
 static Layer  *s_canvas;
@@ -304,8 +315,55 @@ static void update_time(struct tm *t) {
            WD[t->tm_wday], t->tm_mon + 1, t->tm_mday);
 }
 
+// Slide the 2h window over the 4h buffer and recompute rain state + warning,
+// anchored to the *current* clock so the countdown stays accurate between fetches.
+static void recompute_weather(void) {
+  if (!s_wx_have) return;  // keep demo data until the first real forecast
+  time_t now = time(NULL);
+  int idx = (int)((now - s_wx_anchor) / 900);  // 900s = 15 min
+  if (idx < 0) idx = 0;
+
+  for (int i = 0; i < WIN_N; i++) {
+    int b = idx + i;
+    s_data.precip[i] = (b < s_wx_buf_len) ? s_wx_buf[b] : 0;
+  }
+
+  s_data.rain = false;
+  s_data.warn[0] = '\0';
+  if (s_data.precip[0] > 0) {
+    // Raining now: count down to the first dry bucket.
+    int clear_b = -1;
+    for (int i = 1; i < WIN_N; i++) if (s_data.precip[i] == 0) { clear_b = idx + i; break; }
+    s_data.rain = true;
+    if (clear_b >= 0) {
+      int m = (int)((s_wx_anchor + (time_t)clear_b * 900 - now) / 60);
+      if (m < 1) m = 1;
+      snprintf(s_data.warn, sizeof(s_data.warn), "CLEARING IN %dM", m);
+    } else {
+      snprintf(s_data.warn, sizeof(s_data.warn), "RAIN NEXT 2H");
+    }
+  } else {
+    // Dry now: count down to the first wet bucket, if any in the window.
+    for (int i = 1; i < WIN_N; i++) {
+      if (s_data.precip[i] > 0) {
+        int m = (int)((s_wx_anchor + (time_t)(idx + i) * 900 - now) / 60);
+        if (m < 1) m = 1;
+        s_data.rain = true;
+        snprintf(s_data.warn, sizeof(s_data.warn), "RAIN IN %dM", m);
+        break;
+      }
+    }
+  }
+
+  // Stale: no fresh push in 60 min, or the buffer no longer covers "now".
+  bool old = (now - s_wx_last_update) > 60 * 60;
+  bool exhausted = (idx >= s_wx_buf_len);
+  s_data.stale = old || exhausted;
+}
+
 static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
   update_time(tick_time);
+  recompute_weather();
   if (s_canvas) layer_mark_dirty(s_canvas);
 }
 
@@ -334,19 +392,18 @@ static void health_handler(HealthEventType event, void *context) {
 // ---- Weather via AppMessage (PebbleKit JS pushes the canonical model) -------
 static void inbox_received(DictionaryIterator *iter, void *context) {
   Tuple *t;
-  if ((t = dict_find(iter, MESSAGE_KEY_WX_TEMP))) s_data.temp_f = t->value->int32;
-  if ((t = dict_find(iter, MESSAGE_KEY_WX_HIGH))) s_data.high_f = t->value->int32;
-  if ((t = dict_find(iter, MESSAGE_KEY_WX_ICON))) s_data.icon   = t->value->int32;
-  if ((t = dict_find(iter, MESSAGE_KEY_WX_RAIN))) s_data.rain   = (t->value->int32 != 0);
-  if ((t = dict_find(iter, MESSAGE_KEY_WX_WARN))) {
-    strncpy(s_data.warn, t->value->cstring, sizeof(s_data.warn) - 1);
-    s_data.warn[sizeof(s_data.warn) - 1] = '\0';
-  }
+  if ((t = dict_find(iter, MESSAGE_KEY_WX_TEMP)))   s_data.temp_f = t->value->int32;
+  if ((t = dict_find(iter, MESSAGE_KEY_WX_HIGH)))   s_data.high_f = t->value->int32;
+  if ((t = dict_find(iter, MESSAGE_KEY_WX_ICON)))   s_data.icon   = t->value->int32;
+  if ((t = dict_find(iter, MESSAGE_KEY_WX_ANCHOR))) s_wx_anchor   = (time_t)t->value->int32;
   if ((t = dict_find(iter, MESSAGE_KEY_WX_PRECIP))) {
-    int n = t->length; if (n > 8) n = 8;
-    for (int i = 0; i < n; i++) s_data.precip[i] = t->value->data[i];
+    int n = t->length; if (n > BUF_N) n = BUF_N;
+    for (int i = 0; i < n; i++) s_wx_buf[i] = t->value->data[i];
+    s_wx_buf_len = n;
   }
-  s_data.stale = false;
+  s_wx_have = true;
+  s_wx_last_update = time(NULL);
+  recompute_weather();  // derive the visible window + warning from the new buffer
   if (s_canvas) layer_mark_dirty(s_canvas);
 }
 
