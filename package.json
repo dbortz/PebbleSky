@@ -2,9 +2,13 @@
   "name": "PebbleSky",
   "author": "Dave Bortz",
   "version": "1.0.0",
-  "keywords": ["pebble-app"],
+  "keywords": [
+    "pebble-app"
+  ],
   "private": true,
-  "dependencies": {},
+  "dependencies": {
+    "@rebble/clay": "^1.0.10"
+  },
   "pebble": {
     "displayName": "PebbleSky",
     "uuid": "65004eb2-8738-41f9-8cee-41446dda138f",
@@ -17,14 +21,22 @@
       "watchface": true
     },
     "capabilities": [
-      "health"
+      "health",
+      "configurable"
     ],
     "messageKeys": [
       "WX_TEMP",
       "WX_HIGH",
       "WX_ICON",
       "WX_ANCHOR",
-      "WX_PRECIP"
+      "WX_PRECIP",
+      "CFG_PROVIDER",
+      "CFG_APIKEY",
+      "CFG_CELSIUS",
+      "CFG_CLOCK24",
+      "CFG_DATEDMY",
+      "CFG_ACCENT",
+      "CFG_WARNING"
     ],
     "resources": {
       "media": [

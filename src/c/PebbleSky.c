@@ -25,6 +25,29 @@ static Theme s_theme;
 static GColor s_precip_ramp[5];                 // none..heavy
 static const int s_precip_h_num[5] = {14, 34, 55, 78, 100}; // % of max bar height
 
+// ---- User settings (Clay config page; persisted across launches) -----------
+typedef struct {
+  bool   celsius;   // false = Fahrenheit
+  bool   clock24;   // true = 24h; false = 12h (wrap 01-12, no AM/PM)
+  bool   date_dmy;  // false = M/D; true = D/M
+  GColor accent;
+  GColor warning;
+} Settings;
+static Settings s_cfg;
+
+enum { PK_CELSIUS = 1, PK_CLOCK24, PK_DATEDMY, PK_ACCENT, PK_WARNING };
+
+// Clay sends colors as a 24-bit RGB integer; quantize to the Pebble palette.
+static GColor color_from_int(int32_t v) {
+  return GColorFromRGB((v >> 16) & 0xFF, (v >> 8) & 0xFF, v & 0xFF);
+}
+// Convert a stored °F into the display unit (integer-rounded).
+static int disp_temp(int f) {
+  if (!s_cfg.celsius) return f;
+  int n = (f - 32) * 5;
+  return (n >= 0) ? (n + 4) / 9 : (n - 4) / 9;
+}
+
 // ---- Demo data (TODO: replace with real services + AppMessage) -------------
 typedef struct {
   int   battery;        // 0-100
@@ -268,8 +291,8 @@ static void canvas_update(Layer *layer, GContext *ctx) {
   GColor c_primary = s_data.stale ? s_theme.text_secondary : s_theme.text_primary;
   draw_weather_icon(ctx, PAD, WROW_Y, s_data.icon);
   static char temp[8], high[10];
-  snprintf(temp, sizeof(temp), "%d°", s_data.temp_f);
-  snprintf(high, sizeof(high), "H %d°", s_data.high_f);
+  snprintf(temp, sizeof(temp), "%d°", disp_temp(s_data.temp_f));
+  snprintf(high, sizeof(high), "H %d°", disp_temp(s_data.high_f));
   draw_text(ctx, temp, s_f_temp, GRect(PAD + 52, WROW_Y + 2, 95, 42),
             c_primary, GTextAlignmentLeft);
   draw_text(ctx, high, s_f_18, GRect(W - PAD - 70, WROW_Y + 14, 70, 24),
@@ -310,9 +333,11 @@ static void canvas_update(Layer *layer, GContext *ctx) {
 // ---------------------------------------------------------------------------
 static void update_time(struct tm *t) {
   strftime(s_time_buf, sizeof(s_time_buf),
-           clock_is_24h_style() ? "%H:%M" : "%I:%M", t);
-  snprintf(s_date_buf, sizeof(s_date_buf), "%s %d/%d",
-           WD[t->tm_wday], t->tm_mon + 1, t->tm_mday);
+           s_cfg.clock24 ? "%H:%M" : "%I:%M", t);
+  if (s_cfg.date_dmy)
+    snprintf(s_date_buf, sizeof(s_date_buf), "%s %d/%d", WD[t->tm_wday], t->tm_mday, t->tm_mon + 1);
+  else
+    snprintf(s_date_buf, sizeof(s_date_buf), "%s %d/%d", WD[t->tm_wday], t->tm_mon + 1, t->tm_mday);
 }
 
 // Slide the 2h window over the 4h buffer and recompute rain state + warning,
@@ -392,19 +417,37 @@ static void health_handler(HealthEventType event, void *context) {
 // ---- Weather via AppMessage (PebbleKit JS pushes the canonical model) -------
 static void inbox_received(DictionaryIterator *iter, void *context) {
   Tuple *t;
+
+  // --- Settings (Clay) ---
+  bool cfg_changed = false;
+  if ((t = dict_find(iter, MESSAGE_KEY_CFG_CELSIUS))) {
+    s_cfg.celsius = (t->value->int32 != 0); persist_write_bool(PK_CELSIUS, s_cfg.celsius); cfg_changed = true; }
+  if ((t = dict_find(iter, MESSAGE_KEY_CFG_CLOCK24))) {
+    s_cfg.clock24 = (t->value->int32 != 0); persist_write_bool(PK_CLOCK24, s_cfg.clock24); cfg_changed = true; }
+  if ((t = dict_find(iter, MESSAGE_KEY_CFG_DATEDMY))) {
+    s_cfg.date_dmy = (t->value->int32 != 0); persist_write_bool(PK_DATEDMY, s_cfg.date_dmy); cfg_changed = true; }
+  if ((t = dict_find(iter, MESSAGE_KEY_CFG_ACCENT))) {
+    s_cfg.accent = color_from_int(t->value->int32); s_theme.accent = s_cfg.accent;
+    persist_write_int(PK_ACCENT, s_cfg.accent.argb); cfg_changed = true; }
+  if ((t = dict_find(iter, MESSAGE_KEY_CFG_WARNING))) {
+    s_cfg.warning = color_from_int(t->value->int32); s_theme.warning = s_cfg.warning;
+    persist_write_int(PK_WARNING, s_cfg.warning.argb); cfg_changed = true; }
+
+  // --- Weather ---
+  bool wx = false;
   if ((t = dict_find(iter, MESSAGE_KEY_WX_TEMP)))   s_data.temp_f = t->value->int32;
   if ((t = dict_find(iter, MESSAGE_KEY_WX_HIGH)))   s_data.high_f = t->value->int32;
   if ((t = dict_find(iter, MESSAGE_KEY_WX_ICON)))   s_data.icon   = t->value->int32;
-  if ((t = dict_find(iter, MESSAGE_KEY_WX_ANCHOR))) s_wx_anchor   = (time_t)t->value->int32;
+  if ((t = dict_find(iter, MESSAGE_KEY_WX_ANCHOR))) { s_wx_anchor = (time_t)t->value->int32; wx = true; }
   if ((t = dict_find(iter, MESSAGE_KEY_WX_PRECIP))) {
     int n = t->length; if (n > BUF_N) n = BUF_N;
     for (int i = 0; i < n; i++) s_wx_buf[i] = t->value->data[i];
-    s_wx_buf_len = n;
+    s_wx_buf_len = n; wx = true;
   }
-  s_wx_have = true;
-  s_wx_last_update = time(NULL);
-  recompute_weather();  // derive the visible window + warning from the new buffer
-  if (s_canvas) layer_mark_dirty(s_canvas);
+  if (wx) { s_wx_have = true; s_wx_last_update = time(NULL); recompute_weather(); }
+
+  if (cfg_changed) { time_t now = time(NULL); update_time(localtime(&now)); }
+  if (cfg_changed || wx) { if (s_canvas) layer_mark_dirty(s_canvas); }
 }
 
 // ---------------------------------------------------------------------------
@@ -438,6 +481,18 @@ static void prv_window_unload(Window *window) {
   fonts_unload_custom_font(s_f_cap);
 }
 
+static void load_settings(void) {
+  s_cfg.celsius  = persist_exists(PK_CELSIUS)  ? persist_read_bool(PK_CELSIUS)  : false;
+  s_cfg.clock24  = persist_exists(PK_CLOCK24)  ? persist_read_bool(PK_CLOCK24)  : clock_is_24h_style();
+  s_cfg.date_dmy = persist_exists(PK_DATEDMY)  ? persist_read_bool(PK_DATEDMY)  : false;
+  s_cfg.accent   = persist_exists(PK_ACCENT)
+      ? (GColor){.argb = (uint8_t)persist_read_int(PK_ACCENT)}  : GColorVividCerulean;
+  s_cfg.warning  = persist_exists(PK_WARNING)
+      ? (GColor){.argb = (uint8_t)persist_read_int(PK_WARNING)} : GColorYellow;
+  s_theme.accent  = s_cfg.accent;
+  s_theme.warning = s_cfg.warning;
+}
+
 static void prv_init(void) {
   s_theme = (Theme){
     .background     = GColorBlack,
@@ -451,6 +506,8 @@ static void prv_init(void) {
   s_precip_ramp[2] = GColorVividCerulean;               // #00AAFF light
   s_precip_ramp[3] = GColorFromRGB(0x55, 0xAA, 0xFF);   // #55AAFF moderate
   s_precip_ramp[4] = GColorFromRGB(0xAA, 0xFF, 0xFF);   // #AAFFFF heavy
+
+  load_settings();  // accent/warning + format prefs from persist (Clay)
 
   s_window = window_create();
   window_set_background_color(s_window, GColorBlack);
