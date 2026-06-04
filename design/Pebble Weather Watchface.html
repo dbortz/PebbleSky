@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Pebble Time 2 — Weather Watchface</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=Silkscreen:wght@400;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="pebble/studio.css" />
+</head>
+<body>
+
+  <!-- ===== sticky control bar (live tweaks) ===== -->
+  <div class="topbar">
+    <div class="topbar-inner">
+      <div class="brandmark">
+        <b>Pebble Time 2 · Weather Watchface</b>
+        <span>200 × 228 · 64-color flat · themeable roles</span>
+      </div>
+      <div id="controls" style="display:flex;flex-wrap:wrap;gap:12px 18px;align-items:flex-start"></div>
+    </div>
+  </div>
+
+  <div class="wrap">
+
+    <div class="hero-head">
+      <h1>Main watchface</h1>
+      <span class="tag">two states · dry vs. rain-incoming</span>
+    </div>
+    <div class="section" style="margin-top:22px">
+      <div class="screens">
+        <div class="specimen">
+          <div class="device"><div id="mount-dry" class="screen-mount"></div></div>
+          <div class="cap">A · Dry / no alert<small>Calm precip strip · no warning line</small></div>
+        </div>
+        <div class="specimen">
+          <div class="device"><div id="mount-rain" class="screen-mount"></div></div>
+          <div class="cap">B · Rain incoming<small>Warning line (warning role) · rising precip bars</small></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== companion ===== -->
+    <div class="section">
+      <h2>Companion app · flick-cycled screens</h2>
+      <p class="sub">Opened from the face via long-press Quick Launch, then wrist-flick to cycle. Each screen is the same 200 × 228 canvas.</p>
+      <div class="screens">
+        <div class="specimen">
+          <div class="device"><div id="mount-precip" class="screen-mount"></div></div>
+          <div class="cap">1 · 2-hour precip detail<small>8 buckets · time axis · 5-level legend · probability</small></div>
+        </div>
+        <div class="specimen">
+          <div class="device"><div id="mount-5day" class="screen-mount"></div></div>
+          <div class="cap">2 · 5-day forecast<small>weekday · condition · hi/lo range bar</small></div>
+        </div>
+        <div class="specimen">
+          <div class="device"><div id="mount-now" class="screen-mount"></div></div>
+          <div class="cap">3 · Now details<small>temp · feels-like · wind · humidity · updated</small></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== icons ===== -->
+    <div class="section">
+      <h2>Weather icon set · 44 px + 24 px</h2>
+      <p class="sub">Twelve solid flat glyphs, drawn on a 44-grid and shown at both face (44) and forecast-row (24) sizes. Monochrome on text-primary for theme safety; precip glyphs tint their drops with the accent role.</p>
+      <div id="icongrid" class="icongrid"></div>
+    </div>
+
+    <!-- ===== color roles ===== -->
+    <div class="section">
+      <h2>Color roles · Pebble 64-color palette</h2>
+      <p class="sub">Five named roles map straight to watchface settings (accent + warning are user-configurable). Every value snaps to GColor8 — each channel is one of 00 / 55 / AA / FF.</p>
+      <div id="roles" class="roles" style="margin-bottom:14px"></div>
+      <div id="ramp" class="ramp-wrap"></div>
+    </div>
+
+    <!-- ===== spec ===== -->
+    <div class="section">
+      <h2>Element spec · main face</h2>
+      <p class="sub">Positions in the 200 × 228 coordinate space (origin top-left). Fonts shown for the default Grotesk personality; swap via the Type control.</p>
+      <table id="spectable" class="spec"></table>
+    </div>
+
+  </div>
+
+  <script src="pebble/icons.js"></script>
+  <script src="pebble/watchface.js"></script>
+  <script src="pebble/app.js"></script>
+</body>
+</html>

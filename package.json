@@ -1,0 +1,26 @@
+{
+  "name": "PebbleSky",
+  "author": "Dave Bortz",
+  "version": "1.0.0",
+  "keywords": ["pebble-app"],
+  "private": true,
+  "dependencies": {},
+  "pebble": {
+    "displayName": "PebbleSky",
+    "uuid": "65004eb2-8738-41f9-8cee-41446dda138f",
+    "sdkVersion": "3",
+    "enableMultiJS": true,
+    "targetPlatforms": [
+      "emery"
+    ],
+    "watchapp": {
+      "watchface": true
+    },
+    "messageKeys": [
+      "dummy"
+    ],
+    "resources": {
+      "media": []
+    }
+  }
+}

@@ -1,0 +1,10 @@
+# Pebble build output
+build/
+*.pbw
+
+# Node / pkjs
+node_modules/
+
+# OS / editor cruft
+.DS_Store
+*.swp

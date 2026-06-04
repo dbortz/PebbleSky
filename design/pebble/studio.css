@@ -1,0 +1,220 @@
+/* ============================================================
+   PEBBLE WEATHER WATCHFACE — studio + screen styles
+   Screen authored at true 200×228. Studio chrome around it.
+   ============================================================ */
+
+:root {
+  /* named color ROLES (default "Midnight" theme — overridden by JS) */
+  --bg: #000000;
+  --text-primary: #FFFFFF;
+  --text-secondary: #AAAAAA;
+  --accent: #00AAFF;
+  --warning: #FFFF00;
+  /* fixed precip intensity sub-palette (none→heavy) */
+  --p0: #555555; --p1: #0055AA; --p2: #00AAFF; --p3: #55AAFF; --p4: #AAFFFF;
+  /* hairline-ish structural fills, kept palette-safe */
+  --line: #555555;
+  --font-display: 'Archivo', sans-serif;
+  --zoom: 1.7;
+}
+
+/* ---------- studio chrome ---------- */
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: #15161a;
+  color: #e7e8ea;
+  font-family: 'Archivo', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  padding-bottom: 80px;
+}
+.wrap { max-width: 1180px; margin: 0 auto; padding: 0 28px; }
+
+.topbar {
+  position: sticky; top: 0; z-index: 50;
+  background: rgba(18,19,23,.93);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid #2a2c33;
+}
+.topbar-inner { max-width: 1180px; margin: 0 auto; padding: 12px 28px; display: flex; flex-wrap: wrap; gap: 14px 22px; align-items: center; }
+.brandmark { display: flex; flex-direction: column; margin-right: auto; }
+.brandmark b { font-size: 15px; font-weight: 800; letter-spacing: .2px; white-space: nowrap; }
+.brandmark span { font-size: 11px; color: #8b8d95; font-weight: 600; letter-spacing: .4px; }
+
+.ctl { display: flex; flex-direction: column; gap: 5px; }
+.ctl-label { font-size: 9.5px; font-weight: 800; letter-spacing: 1.2px; color: #7c7e87; text-transform: uppercase; }
+.seg { display: inline-flex; background: #232530; border: 1px solid #32343f; border-radius: 8px; padding: 2px; gap: 2px; }
+.seg button { appearance: none; border: 0; background: transparent; color: #b9bbc4; font: inherit; font-size: 12px; font-weight: 700; padding: 4px 9px; border-radius: 6px; cursor: pointer; line-height: 1.4; }
+.seg button.on { background: #3a3d4b; color: #fff; }
+.swrow { display: inline-flex; gap: 5px; }
+.sw { width: 22px; height: 22px; border-radius: 6px; border: 2px solid transparent; cursor: pointer; padding: 0; }
+.sw.on { border-color: #fff; box-shadow: 0 0 0 2px #15161a, 0 0 0 4px rgba(255,255,255,.25); }
+
+/* ---------- section scaffolding ---------- */
+.section { margin-top: 46px; }
+.section > h2 { font-size: 13px; font-weight: 800; letter-spacing: 2px; color: #8b8d95; text-transform: uppercase; margin: 0 0 4px; }
+.section > p.sub { margin: 0 0 22px; color: #6f717a; font-size: 13px; max-width: 620px; line-height: 1.5; }
+.hero-head { display: flex; align-items: baseline; gap: 14px; padding-top: 34px; }
+.hero-head h1 { font-size: 30px; font-weight: 800; letter-spacing: -.5px; margin: 0; }
+.hero-head .tag { font-size: 12px; color: #8b8d95; font-weight: 600; }
+
+.screens { display: flex; flex-wrap: wrap; gap: 40px; align-items: flex-start; }
+.specimen { display: flex; flex-direction: column; gap: 12px; }
+.cap { font-size: 12px; color: #b9bbc4; font-weight: 700; }
+.cap small { display: block; color: #6f717a; font-weight: 600; margin-top: 2px; }
+
+/* the device: a flat neutral bezel around the true-size screen */
+.device {
+  width: calc(200px * var(--zoom) + 24px);
+  padding: 12px;
+  background: #0c0d10;
+  border: 1px solid #2c2e36;
+  border-radius: 22px;
+  box-shadow: 0 18px 40px -22px rgba(0,0,0,.9);
+}
+.screen-mount { width: calc(200px * var(--zoom)); height: calc(228px * var(--zoom)); border-radius: 10px; overflow: hidden; }
+.screen-mount > * { transform: scale(var(--zoom)); transform-origin: top left; }
+
+/* ====================================================================
+   THE WATCHFACE (true 200×228)
+   ==================================================================== */
+.face, .cscreen {
+  width: 200px; height: 228px; background: var(--bg); color: var(--text-primary);
+  font-family: var(--font-display); position: relative; overflow: hidden;
+}
+.face { display: flex; flex-direction: column; }
+
+/* font personalities */
+.ff-grotesque { --font-display: 'Archivo', sans-serif; }
+.ff-condensed { --font-display: 'Saira Condensed', sans-serif; }
+.ff-pixel { --font-display: 'Silkscreen', monospace; }
+
+/* status bar */
+.statusbar { height: 26px; display: flex; align-items: center; justify-content: space-between; padding: 0 9px; }
+.date { color: var(--text-secondary); font-size: 15px; font-weight: 700; letter-spacing: .4px; }
+.ff-pixel .date { font-size: 11px; }
+.batt { display: inline-flex; align-items: center; gap: 4px; color: var(--text-secondary); font-size: 14px; font-weight: 700; }
+.ff-pixel .batt { font-size: 10px; }
+.batt-shell { width: 16px; height: 10px; border: 2px solid var(--text-secondary); border-radius: 2px; padding: 1.5px; display: inline-flex; }
+.batt-fill { display: block; height: 100%; background: var(--text-secondary); }
+.batt-nub { width: 2px; height: 5px; background: var(--text-secondary); margin-left: -1px; border-radius: 0 1px 1px 0; }
+.batt-pct { margin-left: 1px; }
+
+/* time */
+.timezone { flex: 0 0 82px; display: flex; align-items: center; justify-content: center; gap: 5px; }
+.time { font-size: 66px; font-weight: 800; line-height: 1; letter-spacing: -2px; font-variant-numeric: tabular-nums; }
+.ff-condensed .time { font-size: 74px; letter-spacing: 0; }
+.ff-pixel .time { font-size: 40px; letter-spacing: 0; }
+.ampm { font-size: 17px; font-weight: 700; color: var(--text-secondary); align-self: flex-start; margin-top: 16px; }
+.ff-pixel .ampm { font-size: 12px; }
+
+/* weather row */
+.weatherrow { flex: 0 0 46px; display: flex; align-items: center; gap: 9px; padding: 0 9px; }
+.weatherrow.is-stale { opacity: .42; }
+.wicon-box { width: 44px; height: 44px; color: var(--text-primary); display: flex; position: relative; }
+.stale-dot { position: absolute; top: 0; right: -2px; width: 7px; height: 7px; border-radius: 50%; background: var(--text-secondary); }
+.temp-now { font-size: 36px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+.ff-pixel .temp-now { font-size: 24px; }
+.temp-high { margin-left: auto; font-size: 18px; font-weight: 700; color: var(--text-secondary); }
+.ff-pixel .temp-high { font-size: 12px; }
+
+/* steps block (bottom-left) */
+.stepblock { display: flex; flex-direction: column; gap: 4px; flex: 0 0 auto; }
+.step-cap { display: flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 700; letter-spacing: 1.2px; color: var(--text-secondary); }
+.step-cap svg { color: var(--text-secondary); }
+.step-count { font-size: 25px; font-weight: 800; line-height: 1; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+
+/* bottom zone — steps | precip+warning, side by side */
+.bottomzone { flex: 1 1 auto; display: flex; align-items: flex-end; justify-content: space-between; gap: 14px; padding: 0 9px 9px; }
+.precipblock { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.warn-line { color: var(--warning); font-size: 15px; font-weight: 800; letter-spacing: .4px; line-height: 1; }
+.calm-line { color: var(--text-secondary); font-size: 14px; font-weight: 700; line-height: 1; }
+.pstrip { display: flex; align-items: flex-end; gap: 3px; height: 30px; border-bottom: 2px solid var(--line); }
+.pbar { flex: 1 1 0; min-width: 0; display: flex; align-items: flex-end; height: 100%; }
+.pbar-fill { width: 100%; display: block; border-radius: 1px 1px 0 0; }
+.pbar.bar-now .pbar-fill { box-shadow: 0 -3px 0 0 var(--accent); }
+.p0 { background: var(--p0); } .p1 { background: var(--p1); } .p2 { background: var(--p2); }
+.p3 { background: var(--p3); } .p4 { background: var(--p4); }
+
+/* ====================================================================
+   COMPANION SCREENS
+   ==================================================================== */
+.cscreen { padding: 10px 11px; display: flex; flex-direction: column; }
+.cs-head { font-size: 12px; font-weight: 800; letter-spacing: 1.6px; color: var(--text-secondary); }
+.ff-pixel .cs-head { font-size: 9px; }
+.cs-headline { font-size: 18px; font-weight: 800; color: var(--warning); margin-top: 5px; letter-spacing: .2px; }
+.ff-pixel .cs-headline { font-size: 12px; }
+
+/* precip detail */
+.ddetail { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; margin-top: 8px; }
+.dbars { display: flex; align-items: flex-end; gap: 4px; height: 84px; border-bottom: 2px solid var(--line); padding: 0 2px; }
+.dbar { flex: 1; display: flex; align-items: flex-end; }
+.dbar-fill { width: 100%; border-radius: 1px 1px 0 0; }
+.dprob { display: flex; justify-content: space-between; font-size: 10px; font-weight: 700; color: var(--accent); margin-top: 4px; padding: 0 2px; }
+.dlabels { display: flex; justify-content: space-between; font-size: 11px; font-weight: 700; color: var(--text-secondary); margin-top: 2px; padding: 0 2px; }
+.ff-pixel .dlabels, .ff-pixel .dprob { font-size: 8px; }
+.legendrow { display: flex; flex-wrap: wrap; gap: 4px 7px; margin-top: 9px; }
+.leg { display: inline-flex; align-items: center; gap: 3px; font-size: 9.5px; font-weight: 700; color: var(--text-secondary); white-space: nowrap; }
+.ff-pixel .leg { font-size: 7px; }
+.leg-sw { width: 9px; height: 9px; border-radius: 2px; }
+
+/* 5-day */
+.fcast { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 3px; margin-top: 6px; }
+.fcast-row { display: flex; align-items: center; gap: 8px; height: 34px; }
+.fc-day { width: 36px; font-size: 15px; font-weight: 800; }
+.ff-pixel .fc-day { font-size: 11px; }
+.fc-ico { width: 26px; height: 26px; display: flex; color: var(--text-primary); }
+.fc-bar { flex: 1; position: relative; height: 6px; }
+.fc-track { position: absolute; inset: 0; background: var(--line); border-radius: 3px; }
+.fc-range { position: absolute; top: 0; bottom: 0; background: var(--accent); border-radius: 3px; }
+.fc-hi { width: 30px; text-align: right; font-size: 15px; font-weight: 800; }
+.fc-lo { width: 28px; text-align: right; font-size: 15px; font-weight: 700; color: var(--text-secondary); }
+.ff-pixel .fc-hi, .ff-pixel .fc-lo { font-size: 11px; }
+
+/* now details */
+.cscreen.now { }
+.now-main { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
+.now-ico { width: 44px; height: 44px; display: flex; color: var(--text-primary); }
+.now-temp { font-size: 54px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+.ff-pixel .now-temp { font-size: 34px; }
+.now-cond { font-size: 18px; font-weight: 700; margin-top: 4px; }
+.ff-pixel .now-cond { font-size: 12px; }
+.now-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px 12px; margin-top: auto; }
+.ng { display: flex; justify-content: space-between; align-items: baseline; border-top: 2px solid var(--line); padding-top: 4px; }
+.ng-k { font-size: 11px; font-weight: 700; color: var(--text-secondary); letter-spacing: .5px; }
+.ng-v { font-size: 15px; font-weight: 800; }
+.ff-pixel .ng-k { font-size: 8px; } .ff-pixel .ng-v { font-size: 11px; }
+.now-updated { font-size: 10px; font-weight: 700; color: var(--text-secondary); margin-top: 8px; letter-spacing: 1px; }
+.ff-pixel .now-updated { font-size: 8px; }
+
+/* ====================================================================
+   ICON GALLERY
+   ==================================================================== */
+.icongrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 14px; }
+.icocell { background: var(--bg); border: 1px solid #2a2c33; border-radius: 12px; padding: 14px 10px 10px; display: flex; flex-direction: column; align-items: center; gap: 10px; color: var(--text-primary); }
+.icocell .pair { display: flex; align-items: flex-end; gap: 14px; height: 48px; }
+.icocell .nm { font-size: 10px; font-weight: 700; letter-spacing: .4px; color: var(--text-secondary); text-align: center; }
+.wicon { display: block; }
+
+/* ====================================================================
+   SPEC TABLE + ROLES
+   ==================================================================== */
+.spec { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.spec th { text-align: left; font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: #7c7e87; font-weight: 800; padding: 0 14px 9px 0; border-bottom: 1px solid #2c2e36; }
+.spec td { padding: 9px 14px 9px 0; border-bottom: 1px solid #212329; color: #c5c7cf; vertical-align: top; }
+.spec td:first-child { font-weight: 800; color: #fff; white-space: nowrap; }
+.spec .role { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; }
+.spec .role i { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+.spec code { font-family: 'Silkscreen', monospace; font-size: 10px; color: #9fa1aa; }
+
+.roles { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 12px; }
+.rolecard { background: #1c1d23; border: 1px solid #2a2c33; border-radius: 12px; overflow: hidden; }
+.rolecard .chip { height: 54px; display: flex; align-items: flex-end; padding: 7px 9px; }
+.rolecard .meta { padding: 9px 11px 11px; }
+.rolecard .meta b { font-size: 12.5px; font-weight: 800; }
+.rolecard .meta .hex { font-family: 'Silkscreen', monospace; font-size: 10px; color: #8b8d95; margin-top: 2px; }
+.rolecard .meta .use { font-size: 11px; color: #7c7e87; margin-top: 6px; line-height: 1.45; }
+.ramp { display: flex; gap: 4px; margin-top: 10px; }
+.ramp i { flex: 1; height: 22px; border-radius: 4px; }
+.ramp-wrap { background: #1c1d23; border: 1px solid #2a2c33; border-radius: 12px; padding: 12px 14px; }
+.ramp-wrap .lbl { display: flex; justify-content: space-between; font-size: 10px; font-weight: 700; color: #7c7e87; margin-top: 7px; letter-spacing: .5px; }
