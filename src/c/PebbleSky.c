@@ -242,6 +242,28 @@ static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
   if (s_canvas) layer_mark_dirty(s_canvas);
 }
 
+// ---- Battery + Health (real sensors) --------------------------------------
+static void battery_handler(BatteryChargeState state) {
+  s_data.battery = state.charge_percent;
+  if (s_canvas) layer_mark_dirty(s_canvas);
+}
+
+#if defined(PBL_HEALTH)
+static void refresh_steps(void) {
+  HealthServiceAccessibilityMask ok = health_service_metric_accessible(
+      HealthMetricStepCount, time_start_of_today(), time(NULL));
+  if (ok & HealthServiceAccessibilityMaskAvailable) {
+    s_data.steps = (int)health_service_sum_today(HealthMetricStepCount);
+  }
+}
+static void health_handler(HealthEventType event, void *context) {
+  if (event != HealthEventSleepUpdate) {
+    refresh_steps();
+    if (s_canvas) layer_mark_dirty(s_canvas);
+  }
+}
+#endif
+
 // ---------------------------------------------------------------------------
 // Lifecycle
 // ---------------------------------------------------------------------------
@@ -296,10 +318,21 @@ static void prv_init(void) {
   window_stack_push(s_window, true);
 
   tick_timer_service_subscribe(MINUTE_UNIT, tick_handler);
+
+  battery_handler(battery_state_service_peek());
+  battery_state_service_subscribe(battery_handler);
+#if defined(PBL_HEALTH)
+  refresh_steps();
+  health_service_events_subscribe(health_handler, NULL);
+#endif
 }
 
 static void prv_deinit(void) {
   tick_timer_service_unsubscribe();
+  battery_state_service_unsubscribe();
+#if defined(PBL_HEALTH)
+  health_service_events_unsubscribe();
+#endif
   window_destroy(s_window);
 }
 
