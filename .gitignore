@@ -8,3 +8,6 @@ node_modules/
 # OS / editor cruft
 .DS_Store
 *.swp
+
+# waf build lock
+.lock-waf*
