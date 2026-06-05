@@ -104,6 +104,26 @@ static void draw_text(GContext *ctx, const char *s, GFont f, GRect box,
   graphics_draw_text(ctx, s, f, box, GTextOverflowModeTrailingEllipsis, align, NULL);
 }
 
+// Draw the time with each character in a fixed-width cell, so a changing digit
+// width never shifts the clock (Archivo's figures are proportional). Digits get
+// DW, the colon gets CW; the whole group is centered. Tight cells also give the
+// uniform, snug digit spacing the design asked for.
+static void draw_time_cells(GContext *ctx, const char *s, GFont f, int top, int h, GColor color) {
+  const int DS = 44, CS = 20, BOXW = 64;  // digit step, colon step, glyph box (wide enough not to clip)
+  int total = 0;
+  for (const char *p = s; *p; p++) total += (*p == ':') ? CS : DS;
+  int x = (W - total) / 2;
+  graphics_context_set_text_color(ctx, color);
+  for (const char *p = s; *p; p++) {
+    int cw = (*p == ':') ? CS : DS;
+    int center = x + cw / 2;
+    char buf[2] = { *p, '\0' };
+    graphics_draw_text(ctx, buf, f, GRect(center - BOXW / 2, top, BOXW, h),
+                       GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
+    x += cw;
+  }
+}
+
 // Battery: shell (16x10, 2px border) + inner fill ∝ %, + nub, + "NN%".
 static void draw_battery(GContext *ctx) {
   const int shell_w = 16, shell_h = 10;
@@ -141,9 +161,8 @@ static void canvas_update(Layer *layer, GContext *ctx) {
             s_theme.text_secondary, GTextAlignmentLeft);
   draw_battery(ctx);
 
-  // --- Time (centered) ---
-  draw_text(ctx, s_time_buf, s_f_time, GRect(0, TIME_Y - 2, W, TIME_H),
-            s_theme.text_primary, GTextAlignmentCenter);
+  // --- Time (fixed-width cells: steady against proportional digits) ---
+  draw_time_cells(ctx, s_time_buf, s_f_time, TIME_Y - 2, TIME_H, s_theme.text_primary);
 
   // --- Weather row: icon, current temp, high (right) ---
   GColor c_primary = s_data.stale ? s_theme.text_secondary : s_theme.text_primary;
