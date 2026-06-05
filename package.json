@@ -62,7 +62,7 @@
           "type": "font",
           "name": "FONT_ARCHIVO_B_18",
           "file": "fonts/Archivo-Bold.ttf",
-          "characterRegex": "[A-Za-z0-9 °]"
+          "characterRegex": "[A-Za-z0-9 °/%]"
         },
         {
           "type": "font",

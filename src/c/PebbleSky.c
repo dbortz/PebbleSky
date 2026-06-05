@@ -127,7 +127,7 @@ static void draw_time_cells(GContext *ctx, const char *s, GFont f, int top, int 
 // Battery: shell (16x10, 2px border) + inner fill ∝ %, + nub, + "NN%".
 static void draw_battery(GContext *ctx) {
   const int shell_w = 16, shell_h = 10;
-  const int sx = 138, sy = (STATUS_H - shell_h) / 2;
+  const int sx = 120, sy = (STATUS_H - shell_h) / 2;
   graphics_context_set_stroke_color(ctx, s_theme.text_secondary);
   graphics_context_set_stroke_width(ctx, 2);
   graphics_draw_rect(ctx, GRect(sx, sy, shell_w, shell_h));
@@ -137,7 +137,7 @@ static void draw_battery(GContext *ctx) {
   graphics_fill_rect(ctx, GRect(sx + 2, sy + 2, fw, shell_h - 4), 0, GCornerNone);
   static char pct[6];
   snprintf(pct, sizeof(pct), "%d%%", s_data.battery);
-  draw_text(ctx, pct, s_f_14, GRect(sx + shell_w + 5, 2, W - (sx + shell_w + 5) - PAD, 20),
+  draw_text(ctx, pct, s_f_18, GRect(sx + shell_w + 5, 1, W - (sx + shell_w + 5) - PAD, 22),
             s_theme.text_secondary, GTextAlignmentLeft);
 }
 
@@ -157,7 +157,7 @@ static void canvas_update(Layer *layer, GContext *ctx) {
   graphics_fill_rect(ctx, GRect(0, 0, W, H), 0, GCornerNone);
 
   // --- Status bar: date (left), battery (right) ---
-  draw_text(ctx, s_date_buf, s_f_14, GRect(PAD, 4, 120, 20),
+  draw_text(ctx, s_date_buf, s_f_18, GRect(PAD, 2, 120, 22),
             s_theme.text_secondary, GTextAlignmentLeft);
   draw_battery(ctx);
 

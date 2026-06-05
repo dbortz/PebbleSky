@@ -86,29 +86,27 @@ static void draw_precip_screen(GContext *ctx) {
   GRect bars = GRect(PAD, 52, W - 2*PAD, 84);
   psky_precip_bars(ctx, bars, win, WIN_N, s_ramp, s_acc, rain, 84);
 
-  // Probability row (5 samples).
+  // Probability row (5 samples), larger for legibility.
   if (s_probs_len >= 5) {
     static char p[8];
     for (int i = 0; i < 5; i++) {
       snprintf(p, sizeof(p), "%d%%", s_probs[i]);
-      psky_text(ctx, p, s_f10, GRect(PAD + i*(W-2*PAD)/5 - 6, 140, (W-2*PAD)/5 + 12, 14),
+      psky_text(ctx, p, s_f12, GRect(PAD + i*(W-2*PAD)/5 - 8, 146, (W-2*PAD)/5 + 16, 18),
                 s_acc, GTextAlignmentCenter);
     }
   }
   // Time axis labels.
   const char *lbl[5] = {"NOW","+30","+60","+90","+120"};
   for (int i = 0; i < 5; i++)
-    psky_text(ctx, lbl[i], s_f10, GRect(PAD + i*(W-2*PAD)/5 - 6, 156, (W-2*PAD)/5 + 12, 14),
+    psky_text(ctx, lbl[i], s_f12, GRect(PAD + i*(W-2*PAD)/5 - 8, 168, (W-2*PAD)/5 + 16, 18),
               s_sec, GTextAlignmentCenter);
 
-  // Legend swatches.
-  const char *ln[5] = {"NONE","TRACE","LIGHT","MOD","HEAVY"};
-  int lx = PAD;
+  // Intensity scale: 5 ramp swatches (height/color of the bars already convey
+  // intensity, so no per-swatch labels — just a low→high color key).
+  int sw = 20, gap = 5, sx = (W - 5*sw - 4*gap) / 2;
   for (int i = 0; i < 5; i++) {
     graphics_context_set_fill_color(ctx, s_ramp[i]);
-    graphics_fill_rect(ctx, GRect(lx, 198, 9, 9), 1, GCornersAll);
-    psky_text(ctx, ln[i], s_f10, GRect(lx + 11, 196, 32, 14), s_sec, GTextAlignmentLeft);
-    lx += 11 + 26;
+    graphics_fill_rect(ctx, GRect(sx + i*(sw+gap), 198, sw, 12), 2, GCornersAll);
   }
 }
 
