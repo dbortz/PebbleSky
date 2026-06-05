@@ -31,7 +31,8 @@ typedef struct {
 } Settings;
 static Settings s_cfg;
 
-enum { PK_CELSIUS = 1, PK_CLOCK24, PK_DATEDMY, PK_ACCENT, PK_WARNING };
+enum { PK_CELSIUS = 1, PK_CLOCK24, PK_DATEDMY, PK_ACCENT, PK_WARNING,
+       PK_WX_BUF = 10, PK_WX_BUFLEN, PK_WX_ANCHOR, PK_WX_LASTUPD, PK_WX_TEMP, PK_WX_HIGH, PK_WX_ICON };
 
 // Clay sends colors as a 24-bit RGB integer; quantize to the Pebble palette.
 static GColor color_from_int(int32_t v) {
@@ -58,9 +59,9 @@ typedef struct {
 } FaceData;
 
 static FaceData s_data = {
-  .battery = 82, .temp_f = 72, .high_f = 78, .steps = 8432,
-  .icon = 2, .rain = false, .stale = false, .warn = "",
-  .precip = {0, 0, 1, 0, 0, 1, 0, 0},
+  .battery = 82, .temp_f = 0, .high_f = 0, .steps = 0,
+  .icon = 4, .rain = false, .stale = false, .warn = "",
+  .precip = {0, 0, 0, 0, 0, 0, 0, 0},  // no fake data before first/persisted forecast
 };
 
 // Rolling 4h precip buffer + anchor. The phone over-fetches; the watch slides a
@@ -165,16 +166,20 @@ static void canvas_update(Layer *layer, GContext *ctx) {
   draw_time_cells(ctx, s_time_buf, s_f_time, TIME_Y - 2, TIME_H, s_theme.text_primary);
 
   // --- Weather row: icon, current temp, high (right) ---
+  bool loading = !s_wx_have;  // no forecast yet (first-ever launch, nothing persisted)
   GColor c_primary = s_data.stale ? s_theme.text_secondary : s_theme.text_primary;
-  psky_icon(ctx, PAD, WROW_Y, 44, s_data.icon,
+  psky_icon(ctx, PAD, WROW_Y, 44, loading ? 4 : s_data.icon,
             c_primary, s_theme.text_secondary, s_theme.accent, s_theme.background);
   static char temp[8], high[10];
-  snprintf(temp, sizeof(temp), "%d°", disp_temp(s_data.temp_f));
-  snprintf(high, sizeof(high), "H %d°", disp_temp(s_data.high_f));
+  if (loading) snprintf(temp, sizeof(temp), "--°");
+  else snprintf(temp, sizeof(temp), "%d°", disp_temp(s_data.temp_f));
   draw_text(ctx, temp, s_f_temp, GRect(PAD + 52, WROW_Y + 2, 95, 42),
             c_primary, GTextAlignmentLeft);
-  draw_text(ctx, high, s_f_18, GRect(W - PAD - 70, WROW_Y + 14, 70, 24),
-            s_theme.text_secondary, GTextAlignmentRight);
+  if (!loading) {
+    snprintf(high, sizeof(high), "H %d°", disp_temp(s_data.high_f));
+    draw_text(ctx, high, s_f_18, GRect(W - PAD - 70, WROW_Y + 14, 70, 24),
+              s_theme.text_secondary, GTextAlignmentRight);
+  }
   if (s_data.stale) {
     graphics_context_set_fill_color(ctx, s_theme.text_secondary);
     graphics_fill_circle(ctx, GPoint(PAD + 40, WROW_Y + 4), 4);
@@ -193,7 +198,10 @@ static void canvas_update(Layer *layer, GContext *ctx) {
             s_theme.text_primary, GTextAlignmentLeft);
 
   const int rcx = 101, rcw = W - 101 - PAD; // 90
-  if (s_data.rain)
+  if (loading)
+    draw_text(ctx, "Updating", s_f_14, GRect(rcx, 169, rcw, 18),
+              s_theme.text_secondary, GTextAlignmentLeft);
+  else if (s_data.rain)
     draw_text(ctx, s_data.warn, s_f_14, GRect(rcx, 168, rcw, 18),
               s_theme.warning, GTextAlignmentLeft);
   else
@@ -255,6 +263,31 @@ static void recompute_weather(void) {
   s_data.stale = old || exhausted;
 }
 
+// Persist the last forecast so a relaunch shows real data immediately (no demo
+// flash) instead of waiting for the phone to re-fetch.
+static void persist_weather(void) {
+  persist_write_data(PK_WX_BUF, s_wx_buf, BUF_N);
+  persist_write_int(PK_WX_BUFLEN, s_wx_buf_len);
+  persist_write_int(PK_WX_ANCHOR, (int)s_wx_anchor);
+  persist_write_int(PK_WX_LASTUPD, (int)s_wx_last_update);
+  persist_write_int(PK_WX_TEMP, s_data.temp_f);
+  persist_write_int(PK_WX_HIGH, s_data.high_f);
+  persist_write_int(PK_WX_ICON, s_data.icon);
+}
+
+static void load_weather(void) {
+  if (!persist_exists(PK_WX_ANCHOR)) return;
+  s_wx_anchor = (time_t)persist_read_int(PK_WX_ANCHOR);
+  s_wx_last_update = (time_t)persist_read_int(PK_WX_LASTUPD);
+  s_wx_buf_len = persist_read_int(PK_WX_BUFLEN);
+  persist_read_data(PK_WX_BUF, s_wx_buf, BUF_N);
+  s_data.temp_f = persist_read_int(PK_WX_TEMP);
+  s_data.high_f = persist_read_int(PK_WX_HIGH);
+  s_data.icon = persist_read_int(PK_WX_ICON);
+  s_wx_have = true;
+  recompute_weather();  // re-anchor the persisted buffer to the current clock
+}
+
 static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
   update_time(tick_time);
   recompute_weather();
@@ -310,7 +343,7 @@ static void inbox_received(DictionaryIterator *iter, void *context) {
     for (int i = 0; i < n; i++) s_wx_buf[i] = t->value->data[i];
     s_wx_buf_len = n; wx = true;
   }
-  if (wx) { s_wx_have = true; s_wx_last_update = time(NULL); recompute_weather(); }
+  if (wx) { s_wx_have = true; s_wx_last_update = time(NULL); recompute_weather(); persist_weather(); }
 
   if (cfg_changed) { time_t now = time(NULL); update_time(localtime(&now)); }
   if (cfg_changed || wx) { if (s_canvas) layer_mark_dirty(s_canvas); }
@@ -369,6 +402,7 @@ static void prv_init(void) {
   };
   psky_ramp(s_precip_ramp);
   load_settings();
+  load_weather();  // show last-known forecast immediately (re-anchored to now)
 
   s_window = window_create();
   window_set_background_color(s_window, GColorBlack);

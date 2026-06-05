@@ -78,7 +78,8 @@ static void draw_precip_screen(GContext *ctx) {
       int m = (int)((s_anchor + (time_t)(idx+i)*900 - now)/60); if (m<1) m=1;
       rain = true; snprintf(head, sizeof(head), "RAIN IN %dM", m); break; }
   }
-  if (!rain) snprintf(head, sizeof(head), "DRY NEXT 2H");
+  if (!s_have) snprintf(head, sizeof(head), "UPDATING");
+  else if (!rain) snprintf(head, sizeof(head), "DRY NEXT 2H");
   psky_text(ctx, head, s_f15, GRect(PAD, 24, W - 2*PAD, 20),
             rain ? s_warn : s_sec, GTextAlignmentLeft);
 
@@ -155,19 +156,24 @@ static void draw_forecast_screen(GContext *ctx) {
 // ----------------------------------------------------------------------------
 static void draw_now_screen(GContext *ctx) {
   psky_text(ctx, "NOW", s_f12, GRect(PAD, 6, W - 2*PAD, 16), s_sec, GTextAlignmentLeft);
-  psky_icon(ctx, PAD, 28, 44, s_icon, s_pri, s_sec, s_acc, s_bg);
+  psky_icon(ctx, PAD, 28, 44, s_have ? s_icon : 4, s_pri, s_sec, s_acc, s_bg);
   static char t[8];
-  snprintf(t, sizeof(t), "%d°", disp_temp(s_temp));
+  if (s_have) snprintf(t, sizeof(t), "%d°", disp_temp(s_temp));
+  else snprintf(t, sizeof(t), "--°");
   psky_text(ctx, t, s_f54, GRect(PAD + 52, 24, W - PAD - (PAD+52), 56), s_pri, GTextAlignmentLeft);
-  psky_text(ctx, COND[(s_icon >= 0 && s_icon < 12) ? s_icon : 4], s_f18,
+  psky_text(ctx, s_have ? COND[(s_icon >= 0 && s_icon < 12) ? s_icon : 4] : "Updating", s_f18,
             GRect(PAD, 86, W - 2*PAD, 22), s_pri, GTextAlignmentLeft);
 
   const char *k[4] = {"FEELS", "WIND", "HUMID", "HIGH"};
   static char v[4][8];
-  snprintf(v[0], 8, "%d°", disp_temp(s_feels));
-  snprintf(v[1], 8, "%d", s_wind);
-  snprintf(v[2], 8, "%d%%", s_humid);
-  snprintf(v[3], 8, "%d°", disp_temp(s_high));
+  if (s_have) {
+    snprintf(v[0], 8, "%d°", disp_temp(s_feels));
+    snprintf(v[1], 8, "%d", s_wind);
+    snprintf(v[2], 8, "%d%%", s_humid);
+    snprintf(v[3], 8, "%d°", disp_temp(s_high));
+  } else {
+    for (int i = 0; i < 4; i++) snprintf(v[i], 8, "--");
+  }
   for (int i = 0; i < 4; i++) {
     int gx = PAD + (i % 2) * ((W - 2*PAD) / 2);
     int gy = 120 + (i / 2) * 48;

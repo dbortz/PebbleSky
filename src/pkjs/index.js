@@ -10,7 +10,7 @@ var Clay = require('@rebble/clay');
 var clayConfig = require('./config');
 var clay = new Clay(clayConfig);
 
-var REFRESH_MS = 30 * 60 * 1000; // re-fetch every 30 min while connected
+var REFRESH_MS = 15 * 60 * 1000; // re-fetch every 15 min while connected
 
 // 15-min precip total (inches) -> intensity level 0..4 (shared by both providers).
 function precipToLevel(inches) {
