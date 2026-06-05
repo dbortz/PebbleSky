@@ -17,6 +17,12 @@
 static GColor s_bg, s_pri, s_sec, s_acc, s_warn;
 static GColor s_ramp[5];
 
+// ---- settings (Clay; persisted; configured separately from the watchface) ----
+static bool s_celsius = false;
+enum { PK_CELSIUS = 1, PK_ACCENT, PK_WARNING };
+static GColor color_from_int(int32_t v) { return GColorFromRGB((v >> 16) & 0xFF, (v >> 8) & 0xFF, v & 0xFF); }
+static int disp_temp(int f) { if (!s_celsius) return f; int n = (f - 32) * 5; return (n >= 0) ? (n + 4) / 9 : (n - 4) / 9; }
+
 // ---- received model ----
 static int     s_temp = 72, s_high = 78, s_icon = 2, s_feels = 72, s_wind = 0, s_humid = 0;
 static time_t  s_anchor = 0, s_last_update = 0;
@@ -138,9 +144,9 @@ static void draw_forecast_screen(GContext *ctx) {
     graphics_context_set_fill_color(ctx, s_acc);
     graphics_fill_rect(ctx, GRect(x0, y + 14, fw, 4), 2, GCornersAll);
     static char t[6];
-    snprintf(t, sizeof(t), "%d°", s_days[i].hi);
+    snprintf(t, sizeof(t), "%d°", disp_temp(s_days[i].hi));
     psky_text(ctx, t, s_f15, GRect(128, y + 7, 30, 20), s_pri, GTextAlignmentRight);
-    snprintf(t, sizeof(t), "%d°", s_days[i].lo);
+    snprintf(t, sizeof(t), "%d°", disp_temp(s_days[i].lo));
     psky_text(ctx, t, s_f15, GRect(160, y + 7, W - PAD - 160, 20), s_sec, GTextAlignmentRight);
     y += rh;
   }
@@ -153,17 +159,17 @@ static void draw_now_screen(GContext *ctx) {
   psky_text(ctx, "NOW", s_f12, GRect(PAD, 6, W - 2*PAD, 16), s_sec, GTextAlignmentLeft);
   psky_icon(ctx, PAD, 28, 44, s_icon, s_pri, s_sec, s_acc, s_bg);
   static char t[8];
-  snprintf(t, sizeof(t), "%d°", s_temp);
+  snprintf(t, sizeof(t), "%d°", disp_temp(s_temp));
   psky_text(ctx, t, s_f54, GRect(PAD + 52, 24, W - PAD - (PAD+52), 56), s_pri, GTextAlignmentLeft);
   psky_text(ctx, COND[(s_icon >= 0 && s_icon < 12) ? s_icon : 4], s_f18,
             GRect(PAD, 86, W - 2*PAD, 22), s_pri, GTextAlignmentLeft);
 
   const char *k[4] = {"FEELS", "WIND", "HUMID", "HIGH"};
   static char v[4][8];
-  snprintf(v[0], 8, "%d°", s_feels);
+  snprintf(v[0], 8, "%d°", disp_temp(s_feels));
   snprintf(v[1], 8, "%d", s_wind);
   snprintf(v[2], 8, "%d%%", s_humid);
-  snprintf(v[3], 8, "%d°", s_high);
+  snprintf(v[3], 8, "%d°", disp_temp(s_high));
   for (int i = 0; i < 4; i++) {
     int gx = PAD + (i % 2) * ((W - 2*PAD) / 2);
     int gy = 120 + (i / 2) * 48;
@@ -206,17 +212,28 @@ static void click_config(void *context) {
 // ---- AppMessage ----
 static void inbox_received(DictionaryIterator *iter, void *context) {
   Tuple *t;
+
+  // --- Settings (Clay) ---
+  if ((t = dict_find(iter, MESSAGE_KEY_CFG_CELSIUS))) {
+    s_celsius = (t->value->int32 != 0); persist_write_bool(PK_CELSIUS, s_celsius); }
+  if ((t = dict_find(iter, MESSAGE_KEY_CFG_ACCENT))) {
+    s_acc = color_from_int(t->value->int32); persist_write_int(PK_ACCENT, s_acc.argb); }
+  if ((t = dict_find(iter, MESSAGE_KEY_CFG_WARNING))) {
+    s_warn = color_from_int(t->value->int32); persist_write_int(PK_WARNING, s_warn.argb); }
+
+  // --- Weather ---
+  bool wx = false;
   if ((t = dict_find(iter, MESSAGE_KEY_WX_TEMP)))   s_temp  = t->value->int32;
   if ((t = dict_find(iter, MESSAGE_KEY_WX_HIGH)))   s_high  = t->value->int32;
   if ((t = dict_find(iter, MESSAGE_KEY_WX_ICON)))   s_icon  = t->value->int32;
   if ((t = dict_find(iter, MESSAGE_KEY_WX_FEELS)))  s_feels = t->value->int32;
   if ((t = dict_find(iter, MESSAGE_KEY_WX_WIND)))   s_wind  = t->value->int32;
   if ((t = dict_find(iter, MESSAGE_KEY_WX_HUMID)))  s_humid = t->value->int32;
-  if ((t = dict_find(iter, MESSAGE_KEY_WX_ANCHOR))) s_anchor = (time_t)t->value->int32;
+  if ((t = dict_find(iter, MESSAGE_KEY_WX_ANCHOR))) { s_anchor = (time_t)t->value->int32; wx = true; }
   if ((t = dict_find(iter, MESSAGE_KEY_WX_PRECIP))) {
     int n = t->length; if (n > BUF_N) n = BUF_N;
     for (int i = 0; i < n; i++) s_precip[i] = t->value->data[i];
-    s_precip_len = n;
+    s_precip_len = n; wx = true;
   }
   if ((t = dict_find(iter, MESSAGE_KEY_WX_PROBS))) {
     int n = t->length; if (n > 5) n = 5;
@@ -232,8 +249,7 @@ static void inbox_received(DictionaryIterator *iter, void *context) {
     }
     s_days_len = n;
   }
-  s_have = true;
-  s_last_update = time(NULL);
+  if (wx) { s_have = true; s_last_update = time(NULL); }
   layer_mark_dirty(s_canvas);
 }
 
@@ -256,10 +272,17 @@ static void window_unload(Window *window) {
   fonts_unload_custom_font(s_f12); fonts_unload_custom_font(s_f10);
 }
 
+static void load_settings(void) {
+  s_celsius = persist_exists(PK_CELSIUS) ? persist_read_bool(PK_CELSIUS) : false;
+  s_acc  = persist_exists(PK_ACCENT)  ? (GColor){.argb = (uint8_t)persist_read_int(PK_ACCENT)}  : GColorVividCerulean;
+  s_warn = persist_exists(PK_WARNING) ? (GColor){.argb = (uint8_t)persist_read_int(PK_WARNING)} : GColorYellow;
+}
+
 static void init(void) {
   s_bg = GColorBlack; s_pri = GColorWhite; s_sec = GColorLightGray;
   s_acc = GColorVividCerulean; s_warn = GColorYellow;
   psky_ramp(s_ramp);
+  load_settings();
 
   s_window = window_create();
   window_set_background_color(s_window, GColorBlack);
