@@ -216,7 +216,7 @@ static void recompute_weather(void) {
     s_data.rain = true;
     if (clear_b >= 0) {
       int m = (int)((s_wx_anchor + (time_t)clear_b * 900 - now) / 60); if (m < 1) m = 1;
-      snprintf(s_data.warn, sizeof(s_data.warn), "CLEARING IN %dM", m);
+      snprintf(s_data.warn, sizeof(s_data.warn), "DRY IN %dM", m);
     } else {
       snprintf(s_data.warn, sizeof(s_data.warn), "RAIN NEXT 2H");
     }

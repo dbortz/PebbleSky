@@ -71,7 +71,7 @@ static void draw_precip_screen(GContext *ctx) {
     for (int i = 1; i < WIN_N; i++) if (win[i] == 0) { clear_b = idx + i; break; }
     rain = true;
     if (clear_b >= 0) { int m = (int)((s_anchor + (time_t)clear_b*900 - now)/60); if (m<1) m=1;
-      snprintf(head, sizeof(head), "CLEARING IN %dM", m); }
+      snprintf(head, sizeof(head), "DRY IN %dM", m); }
     else snprintf(head, sizeof(head), "RAIN NEXT 2H");
   } else {
     for (int i = 1; i < WIN_N; i++) if (win[i] > 0) {
