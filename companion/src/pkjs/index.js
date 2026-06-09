@@ -18,6 +18,32 @@ function precipToLevel(inches) {
 function clamp8(n) { n = Math.round(n); return n < 0 ? 0 : (n > 255 ? 255 : n); }
 function isDayNow() { var h = new Date().getHours(); return h >= 6 && h < 19; }
 
+// Strip diacritics + any non-ASCII so the subsetted watch font can render it.
+function asciiNormalize(s) {
+  try { s = s.normalize('NFD'); } catch (e) { /* older JS */ }
+  return s.replace(/[^\x20-\x7E]/g, '').trim();
+}
+
+// Reverse-geocode lat/lon to a city/locality name (free, no API key) and send
+// it to the watch as WX_LOC. Independent of the weather provider.
+function reverseGeocode(lat, lon) {
+  var url = 'https://api.bigdatacloud.net/data/reverse-geocode-client?latitude='
+    + lat + '&longitude=' + lon + '&localityLanguage=en';
+  var xhr = new XMLHttpRequest();
+  xhr.onload = function () {
+    try {
+      var d = JSON.parse(xhr.responseText);
+      var name = asciiNormalize(d.city || d.locality || d.principalSubdivision || '');
+      if (name) Pebble.sendAppMessage({ WX_LOC: name },
+        function () { console.log('PebbleSky Detail: location ' + name); },
+        function (e) { console.log('PebbleSky Detail: loc send failed'); });
+    } catch (e) { console.log('PebbleSky Detail: geocode parse error: ' + e); }
+  };
+  xhr.onerror = function () { console.log('PebbleSky Detail: geocode fetch error'); };
+  xhr.open('GET', url);
+  xhr.send();
+}
+
 function send(m) {
   Pebble.sendAppMessage(m,
     function () { console.log('PebbleSky Detail: sent forecast'); },
@@ -166,6 +192,7 @@ function getWeather() {
       var lat = pos.coords.latitude, lon = pos.coords.longitude;
       if (provider === 'tomorrowio' && key) fetchTomorrow(lat, lon, key);
       else fetchOpenMeteo(lat, lon);
+      reverseGeocode(lat, lon);  // location label (independent of weather fetch)
     },
     function (err) { console.log('PebbleSky Detail: geolocation error: ' + err.message); },
     { timeout: 15000, maximumAge: 600000 }

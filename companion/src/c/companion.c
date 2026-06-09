@@ -29,6 +29,7 @@ static time_t  s_anchor = 0, s_last_update = 0;
 static uint8_t s_precip[BUF_N]; static int s_precip_len = 0;
 static uint8_t s_probs[5];      static int s_probs_len = 0;
 static struct { uint8_t icon; int hi; int lo; } s_days[5]; static int s_days_len = 0;
+static char    s_loc[24] = "";   // reverse-geocoded place name (GPS)
 static bool    s_have = false;
 
 static Window *s_window;
@@ -155,7 +156,8 @@ static void draw_forecast_screen(GContext *ctx) {
 // Screen 2: now details
 // ----------------------------------------------------------------------------
 static void draw_now_screen(GContext *ctx) {
-  psky_text(ctx, "NOW", s_f12, GRect(PAD, 6, W - 2*PAD, 16), s_sec, GTextAlignmentLeft);
+  psky_text(ctx, s_loc[0] ? s_loc : "NOW", s_f15, GRect(PAD, 4, W - 2*PAD, 20),
+            s_sec, GTextAlignmentLeft);
   psky_icon(ctx, PAD, 28, 44, s_have ? s_icon : 4, s_pri, s_sec, s_acc, s_bg);
   static char t[8];
   if (s_have) snprintf(t, sizeof(t), "%d°", disp_temp(s_temp));
@@ -233,6 +235,9 @@ static void inbox_received(DictionaryIterator *iter, void *context) {
   if ((t = dict_find(iter, MESSAGE_KEY_WX_FEELS)))  s_feels = t->value->int32;
   if ((t = dict_find(iter, MESSAGE_KEY_WX_WIND)))   s_wind  = t->value->int32;
   if ((t = dict_find(iter, MESSAGE_KEY_WX_HUMID)))  s_humid = t->value->int32;
+  if ((t = dict_find(iter, MESSAGE_KEY_WX_LOC))) {
+    strncpy(s_loc, t->value->cstring, sizeof(s_loc) - 1); s_loc[sizeof(s_loc) - 1] = '\0';
+  }
   if ((t = dict_find(iter, MESSAGE_KEY_WX_ANCHOR))) { s_anchor = (time_t)t->value->int32; wx = true; }
   if ((t = dict_find(iter, MESSAGE_KEY_WX_PRECIP))) {
     int n = t->length; if (n > BUF_N) n = BUF_N;
